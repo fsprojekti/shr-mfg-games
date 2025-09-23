@@ -8,12 +8,12 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  * @title GameToken
  * @dev Custom ERC20 Token for the game, mintable by the owner.
  */
-contract ProdexToken is ERC20, Ownable {
+contract FractonToken is ERC20, Ownable {
     /**
      * @dev Constructor that gives msg.sender (owner) the initial supply of tokens
      * and sets the name and symbol of the token.
      */
-    constructor(uint256 initialSupply) ERC20("Prodex", "PDX") Ownable(msg.sender){
+    constructor(uint256 initialSupply) ERC20("Fracton", "PRT") Ownable(msg.sender){
         _mint(msg.sender, initialSupply);
     }
 
