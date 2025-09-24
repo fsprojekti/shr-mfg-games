@@ -10,9 +10,9 @@ const config: HardhatUserConfig = {
     plugins: [hardhatToolboxViemPlugin],
     solidity: {
         profiles: {
-            default: { version: "0.8.28" },
+            default: { version: "0.8.30" },
             production: {
-                version: "0.8.28",
+                version: "0.8.30",
                 settings: { optimizer: { enabled: true, runs: 200 } },
             },
         },
@@ -35,22 +35,7 @@ const config: HardhatUserConfig = {
                     count: 1,
                 }
                 : [process.env.AMOY_PRIVATE_KEY || ""],
-        },
-
-        // (example) Sepolia also needs `type: "http"`
-        sepolia: {
-            type: "http",
-            chainType: "l1",
-            url: process.env.SEPOLIA_RPC_URL || "",
-            accounts: useMnemonic
-                ? {
-                    mnemonic: process.env.MNEMONIC!,
-                    path: "m/44'/60'/0'/0",
-                    initialIndex: 0,
-                    count: 1,
-                }
-                : [process.env.SEPOLIA_PRIVATE_KEY || ""],
-        },
+        }
     }
 };
 

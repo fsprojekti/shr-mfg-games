@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Factory Frenzy — RFID Grid</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 24px; }
+        #topbar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+        button { padding: 8px 12px; cursor: pointer; }
+        #status { font-size: 14px; color: #444; }
+        #balance, #scores { margin-top: 12px; }
+        canvas { border: 1px solid #000; background: #f8f8f8; display: block; max-width: 90vw; height: auto; }
+        #legend { margin-top: 8px; font-size: 14px; color: #666; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+</head>
+<body>
+
+<div id="topbar">
+    <button id="connectBtn">Connect Wallet</button>
+    <span id="status">Disconnected (read-only)</span>
+</div>
+
+<canvas id="factoryCanvas" width="800" height="800"></canvas>
+
+<div id="balance">Factory Balance: …</div>
+<div id="scores">Scores:<div id="playerScores"></div></div>
+<div id="legend">Tip: click a circle to attempt collection. You’ll be asked to enter the RFID (8 hex chars, e.g. <code>073618F2</code>).</div>
+
+<script>
+    /** ---------- Board / Layout ---------- **/
+    const canvas = document.getElementById('factoryCanvas');
+    const ctx = canvas.getContext('2d');
+    const gridSize = 5;
+    const cellSize = canvas.width / gridSize;
+    const R = 30;
+
+    // Label ↔ coordinates
+    function labelToRC(label){
+        // "A1".."E5"
+        const colChar = label[0]; // A..E
+        const rowChar = label[1]; // 1..5 (single digit here)
+        const r = parseInt(rowChar,10)-1;
+        const c = colChar.charCodeAt(0) - 65;
+        return {r, c};
+    }
+    function rcToCenter(r,c){
+        return {
+            x: c * cellSize + cellSize/2,
+            y: r * cellSize + cellSize/2
+        };
+    }
+
+    /** ---------- Contract wiring (NEW ABI) ---------- **/
+
+// **** REPLACE with your deployed addresses ****
+    const contractAddress = '0xf745EA20b7dC2c63BC493B9E14539Fdf10d9e43A';
+    const tokenAddress    = '0xeb8Bc4fdEB7f9A9034b1242f46abd76B32fD4c95';
+
+    // NEW contract ABI (bytes4 mapping, bytes4[] getters, collectJob(tag, providedRFID))
+    const contractABI = [
+        {"inputs":[{"internalType":"contract IERC20","name":"_rewardToken","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},
+        {"anonymous":false,"inputs":[
+                {"indexed":true,"internalType":"address","name":"collector","type":"address"},
+                {"indexed":true,"internalType":"bytes4","name":"tag","type":"bytes4"},
+                {"indexed":false,"internalType":"uint256","name":"reward","type":"uint256"}],
+            "name":"JobCollected","type":"event"
+        },
+        {
+            "inputs":[
+                {"internalType":"bytes4","name":"tag","type":"bytes4"},
+                {"internalType":"bytes4","name":"providedRFID","type":"bytes4"}
+            ],
+            "name":"collectJob","outputs":[],"stateMutability":"nonpayable","type":"function"
+        },
+        {"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"depositTokens","outputs":[],"stateMutability":"nonpayable","type":"function"},
+        {"inputs":[],"name":"getAllJobSpots","outputs":[{"internalType":"bytes4[]","name":"","type":"bytes4[]"}],"stateMutability":"view","type":"function"},
+        {"inputs":[{"internalType":"bytes4","name":"tag","type":"bytes4"}],"name":"getJobReward","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+        {"inputs":[{"internalType":"bytes4","name":"","type":"bytes4"}],"name":"jobSpots","outputs":[
+                {"internalType":"uint256","name":"reward","type":"uint256"},
+                {"internalType":"address","name":"collector","type":"address"},
+                {"internalType":"bytes4","name":"tag","type":"bytes4"}
+            ],"stateMutability":"view","type":"function"
+        },
+        {"inputs":[],"name":"rewardToken","outputs":[{"internalType":"contract IERC20","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+        {"inputs":[],"name":"totalRewards","outputs":[{"internalType":"uint256","name":"totalReward","type":"uint256"}],"stateMutability":"view","type":"function"},
+        {"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"withdrawTokens","outputs":[],"stateMutability":"nonpayable","type":"function"}
+    ];
+
+    // Simple ERC20 (read-only needs)
+    const tokenABI = [
+        {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Transfer","type":"event"},
+        {"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+        {"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},
+        {"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"}
+    ];
+
+    /** ---------- Providers (read + write) ---------- **/
+    let web3Read = new Web3('https://rpc-amoy.polygon.technology/');
+    let readContract = new web3Read.eth.Contract(contractABI, contractAddress);
+    let readToken = new web3Read.eth.Contract(tokenABI, tokenAddress);
+
+    let web3Write = null;
+    let writeContract = null;
+    let selectedAccount = null;
+
+    const connectBtn = document.getElementById('connectBtn');
+    const statusEl = document.getElementById('status');
+
+    connectBtn.onclick = async () => {
+        if (!window.ethereum) {
+            alert('MetaMask (or compatible) not found. Install it to send transactions.');
+            return;
+        }
+        try {
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            selectedAccount = accounts[0];
+            web3Write = new Web3(window.ethereum);
+            writeContract = new web3Write.eth.Contract(contractABI, contractAddress);
+            statusEl.textContent = `Connected: ${selectedAccount.slice(0,6)}…${selectedAccount.slice(-4)}`;
+        } catch (e) {
+            console.error(e);
+            alert('Wallet connection failed.');
+        }
+    };
+
+    /** ---------- RFID mapping (bytes4 <-> label) ---------- **/
+    const TAG_BY_LABEL = {
+        // Row 1
+        A1: '0x073618F2', B1: '0xA73518F2', C1: '0xD73418F2', D1: '0xA7DB18F2', E1: '0x27D718F2',
+        // Row 2
+        A2: '0x17DD18F2', B2: '0xB7DC18F2', C2: '0x873418F2', D2: '0x373518F2', E2: '0xC7D618F2',
+        // Row 3
+        A3: '0x17DE18F2', B3: '0xA7AA19F2', C3: '0x273818F2', D3: '0x17D818F2', E3: '0x773718F2',
+        // Row 4
+        A4: '0xB7DD18F2', B4: '0x77DC18F2', C4: '0x873818F2', D4: '0x77D818F2', E4: '0x273718F2',
+        // Row 5
+        A5: '0x573618F2', B5: '0xB73618F2', C5: '0xB7D718F2', D5: '0xF7AB19F2', E5: '0x07DC18F2'
+    };
+    const LABEL_BY_TAG = Object.fromEntries(Object.entries(TAG_BY_LABEL).map(([k,v]) => [v.toLowerCase(), k]));
+
+    /** ---------- Helpers ---------- **/
+    function addressToColor(address) {
+        if (!address || /^0x0{40}$/i.test(address)) return '#a2a1a1';
+        // simple hue from hash
+        const hash = web3Read.utils.sha3(address);
+        const hue = parseInt(hash.slice(2, 8), 16) % 360;
+        const sat = 75;
+        const light = 55;
+        return `hsl(${hue}, ${sat}%, ${light}%)`;
+    }
+
+    async function updateFactoryBalance() {
+        try {
+            const bal = await readToken.methods.balanceOf(contractAddress).call();
+            const decimals = await readToken.methods.decimals().call().catch(()=>18);
+            const symbol = await readToken.methods.symbol().call().catch(()=> 'PRD');
+            const human = (Number(bal) / (10 ** decimals)).toFixed(0);
+            document.getElementById('balance').textContent = `Factory Balance: ${human} ${symbol}`;
+        } catch (e) {
+            console.error('balance error', e);
+        }
+    }
+
+    /** ---------- Drawing ---------- **/
+    function drawGrid() {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.strokeStyle = '#ccc';
+        for (let i=0;i<=gridSize;i++){
+            ctx.beginPath(); ctx.moveTo(i*cellSize,0); ctx.lineTo(i*cellSize,canvas.height); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0,i*cellSize); ctx.lineTo(canvas.width,i*cellSize); ctx.stroke();
+        }
+    }
+
+    function drawSpot(label, rewardWei, collector) {
+        const {r,c} = labelToRC(label);
+        const {x,y} = rcToCenter(r,c);
+
+        ctx.fillStyle = addressToColor(collector);
+        ctx.beginPath(); ctx.arc(x,y,R,0,2*Math.PI); ctx.fill();
+        ctx.strokeStyle = '#000'; ctx.stroke();
+
+        // reward (integer tokens)
+        const reward = Math.floor(Number(rewardWei) / 1e18);
+        ctx.fillStyle = '#000'; ctx.font = '16px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(`${reward}`, x, y+2);
+
+        // label above
+        ctx.font = '14px Arial'; ctx.fillText(label, x, y - R - 12);
+    }
+
+    let lastBoardData = {}; // cache by tag
+
+    async function drawBoard() {
+        drawGrid();
+
+        let tagsOnChain;
+        try {
+            // try the contract list
+            tagsOnChain = await readContract.methods.getAllJobSpots().call();
+        } catch (e) {
+            // fallback to hardcoded 25 tags
+            tagsOnChain = Object.values(TAG_BY_LABEL);
+        }
+
+        const playerScores = {}; // address -> {count, reward}
+
+        // fetch each spot
+        for (const tag of tagsOnChain) {
+            let data;
+            try {
+                data = await readContract.methods.jobSpots(tag).call();
+            } catch (e) {
+                console.error('jobSpots read failed for', tag, e);
+                continue;
+            }
+            const tLower = (tag || '').toLowerCase();
+            const label = LABEL_BY_TAG[tLower] || '??';
+            drawSpot(label, data.reward, data.collector);
+
+            if (data.collector && !/^0x0{40}$/i.test(data.collector)) {
+                if (!playerScores[data.collector]) playerScores[data.collector] = {count:0, reward:0};
+                playerScores[data.collector].count += 1;
+                playerScores[data.collector].reward += Number(data.reward);
+            }
+
+            lastBoardData[tLower] = data;
+        }
+
+        // Update scores
+        const div = document.getElementById('playerScores');
+        div.innerHTML = '';
+        Object.entries(playerScores).forEach(([addr, s])=>{
+            const el = document.createElement('div');
+            el.style.color = addressToColor(addr);
+            el.textContent = `${addr.slice(0,6)}…: ${s.count} jobs, ${Math.floor(s.reward/1e18)} tokens`;
+            div.appendChild(el);
+        });
+    }
+
+    /** ---------- Click-to-collect flow ---------- **/
+    canvas.addEventListener('click', async (ev) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = ev.clientX - rect.left;
+        const y = ev.clientY - rect.top;
+
+        // Find nearest label within radius
+        let chosenLabel = null;
+        for (const label of Object.keys(TAG_BY_LABEL)) {
+            const {r,c} = labelToRC(label);
+            const {x:cx,y:cy} = rcToCenter(r,c);
+            const dx = x - cx, dy = y - cy;
+            if (Math.sqrt(dx*dx+dy*dy) <= R) { chosenLabel = label; break; }
+        }
+        if (!chosenLabel) return;
+
+        const tag = TAG_BY_LABEL[chosenLabel];
+
+        // Prompt for RFID (8 hex chars)
+        let input = prompt(`Collect ${chosenLabel}\nEnter RFID (8 hex chars, e.g. 073618F2):`, '');
+        if (input === null) return; // cancelled
+
+        input = (input || '').trim().replace(/^0x/i,'').toUpperCase();
+        if (!/^[0-9A-F]{8}$/.test(input)) {
+            alert('Invalid RFID format. Expect exactly 8 hex characters.');
+            return;
+        }
+        const providedRFID = '0x' + input;
+
+        if (!web3Write || !selectedAccount) {
+            alert('Connect your wallet first to send a transaction.');
+            return;
+        }
+
+        try {
+            // send tx: collectJob(tag, providedRFID)
+            await writeContract.methods.collectJob(tag, providedRFID).send({ from: selectedAccount });
+            // After success, refresh reads
+            await Promise.all([drawBoard(), updateFactoryBalance()]);
+        } catch (e) {
+            console.error(e);
+            alert(e?.message || 'Transaction failed.');
+        }
+    });
+
+    /** ---------- Init ---------- **/
+    async function initialize() {
+        // read-only connection test
+        try {
+            await web3Read.eth.net.isListening();
+        } catch (e) {
+            console.warn('RPC not reachable right now.', e);
+        }
+        await updateFactoryBalance();
+        await drawBoard();
+
+        // Light polling to keep UI fresh (no websockets on public HTTP)
+        setInterval(async () => {
+            await Promise.all([drawBoard(), updateFactoryBalance()]);
+        }, 15000);
+    }
+
+    initialize();
+</script>
+</body>
+</html>
