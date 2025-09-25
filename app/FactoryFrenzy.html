@@ -54,8 +54,8 @@
     /** ---------- Contract wiring (NEW ABI) ---------- **/
 
 // **** REPLACE with your deployed addresses ****
-    const contractAddress = '0xf745EA20b7dC2c63BC493B9E14539Fdf10d9e43A';
-    const tokenAddress    = '0xeb8Bc4fdEB7f9A9034b1242f46abd76B32fD4c95';
+    const contractAddress = '0x58D6F0289eeEb78FA22ee4B35D10055954DA72E0';
+    const tokenAddress    = '0x735CE6C6a13633CeA8338356516d6b398a2bBD21';
 
     // NEW contract ABI (bytes4 mapping, bytes4[] getters, collectJob(tag, providedRFID))
     const contractABI = [
@@ -155,7 +155,7 @@
             const bal = await readToken.methods.balanceOf(contractAddress).call();
             const decimals = await readToken.methods.decimals().call().catch(()=>18);
             const symbol = await readToken.methods.symbol().call().catch(()=> 'PRD');
-            const human = (Number(bal) / (10 ** decimals)).toFixed(0);
+            const human = (Number(bal) / (10 ** Number(decimals))).toFixed(0);
             document.getElementById('balance').textContent = `Factory Balance: ${human} ${symbol}`;
         } catch (e) {
             console.error('balance error', e);
