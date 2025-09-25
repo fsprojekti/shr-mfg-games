@@ -1,0 +1,327 @@
+{
+	"compiler": {
+		"version": "0.8.30+commit.73712a01"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "contract IERC20",
+						"name": "_rewardToken",
+						"type": "address"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "collector",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "bytes4",
+						"name": "tag",
+						"type": "bytes4"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "reward",
+						"type": "uint256"
+					}
+				],
+				"name": "JobCollected",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes4",
+						"name": "tag",
+						"type": "bytes4"
+					}
+				],
+				"name": "collectJob",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "depositTokens",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getAllJobSpots",
+				"outputs": [
+					{
+						"internalType": "bytes4[]",
+						"name": "",
+						"type": "bytes4[]"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes4",
+						"name": "tag",
+						"type": "bytes4"
+					}
+				],
+				"name": "getJobReward",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "initialize",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"name": "jobSpotTags",
+				"outputs": [
+					{
+						"internalType": "bytes4",
+						"name": "",
+						"type": "bytes4"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes4",
+						"name": "",
+						"type": "bytes4"
+					}
+				],
+				"name": "jobSpots",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "reward",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "collector",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes4",
+						"name": "tag",
+						"type": "bytes4"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "owner",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "rewardToken",
+				"outputs": [
+					{
+						"internalType": "contract IERC20",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "totalRewards",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "totalReward",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes4[]",
+						"name": "oldTags",
+						"type": "bytes4[]"
+					},
+					{
+						"internalType": "bytes4[]",
+						"name": "newTags",
+						"type": "bytes4[]"
+					}
+				],
+				"name": "updateAllTags",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes4",
+						"name": "oldTag",
+						"type": "bytes4"
+					},
+					{
+						"internalType": "bytes4",
+						"name": "newTag",
+						"type": "bytes4"
+					}
+				],
+				"name": "updateTag",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "withdrawTokens",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"details": "A simplified version of the manufacturing game where Automated Robot Vehicles (ARVs) collect rewards from various job spots. Each job spot contains one job with a varying reward, which is paid in ERC20 tokens when the job is collected.",
+			"kind": "dev",
+			"methods": {
+				"collectJob(bytes4)": {
+					"details": "Allows an ARV (msg.sender) to collect the job at a specific job spot. The ARV must provide the correct RFID tag. The ARV will receive the reward in ERC20 tokens.",
+					"params": {
+						"tag": "The RFID tag of the job spot."
+					}
+				},
+				"depositTokens(uint256)": {
+					"details": "Allows the factory owner to deposit ERC20 tokens into the factory for paying rewards."
+				},
+				"getAllJobSpots()": {
+					"details": "Returns an array of all job spot RFID tags."
+				},
+				"getJobReward(bytes4)": {
+					"details": "Returns the reward for a job at a given job spot. If the job has already been collected, the reward will be 0.",
+					"params": {
+						"tag": "The RFID tag of the job spot to query."
+					}
+				},
+				"initialize()": {
+					"details": "Initializes all jobSpots with random rewards. Uses the predefined RFID tags instead of numeric IDs. Can be called again to reset rewards (collectors remain unchanged)."
+				},
+				"totalRewards()": {
+					"details": "Calculates and returns the total rewards across all job spots. This sums up the reward for each job spot, regardless of whether it has been collected."
+				},
+				"updateAllTags(bytes4[],bytes4[])": {
+					"details": "Batch update multiple RFID tags. oldTags[i] will be replaced by newTags[i]."
+				},
+				"updateTag(bytes4,bytes4)": {
+					"details": "Update a single RFID tag for an existing jobSpot."
+				},
+				"withdrawTokens(uint256)": {
+					"details": "Allows the factory owner to withdraw ERC20 tokens from the factory."
+				}
+			},
+			"title": "FactoryFrenzy",
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/FactoryFrenzy.sol": "FactoryFrenzy"
+		},
+		"evmVersion": "prague",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": true,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+			"keccak256": "0x74ed01eb66b923d0d0cfe3be84604ac04b76482a55f9dd655e1ef4d367f95bc2",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://5282825a626cfe924e504274b864a652b0023591fa66f06a067b25b51ba9b303",
+				"dweb:/ipfs/QmeCfPykghhMc81VJTrHTC7sF6CRvaA1FXVq2pJhwYp1dV"
+			]
+		},
+		"contracts/FactoryFrenzy.sol": {
+			"keccak256": "0x415fb6040814f01a559f85569699ae5ad9e9db51093f533480c5c866c6a7758b",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://d587eb7376b0b50bf48319824f07dc08d559efd9886db7961abaa0add179e4be",
+				"dweb:/ipfs/QmSXrcVbaSwWAmgk5PHDwcP13TTxoMJ8TaH5wDbC5xZvye"
+			]
+		}
+	},
+	"version": 1
+}
